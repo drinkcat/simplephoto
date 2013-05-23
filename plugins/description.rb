@@ -1,11 +1,9 @@
 
 class Description
-    attr_reader :priority
     attr_reader :accel
     
     def initialize()
-        @priority = -100
-        @accel = "d"
+        @accel = [ "d" ]
         @image = nil
     end
 
@@ -17,8 +15,9 @@ class Description
         return box
     end
 
-    def activate()
+    def activate(key)
         #FIXME: Set in focus
+        false
     end
 
     def imagechanged(image)

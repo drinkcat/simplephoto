@@ -22,15 +22,22 @@ class PhotoList < Gtk::IconView
         @pixbufs = []
     end
 
-    def set_database(db)
-        @db = db
+    def update()
+        return if (!@db)
 
-        db.images.each{|im|
+        @model.clear
+
+        @db.images.each{|im|
+            next if (!im.display)
             iter = @model.append
             @model.set_value(iter, 0, im)
             @model.set_value(iter, 1, im.thumbnail)
-            @model.set_value(iter, 2, im.filename)
+            name = im.filename
+            name += " (#{im.rank})" if (im.rank > 0)
+            @model.set_value(iter, 2, name)
         }
+
+        @bgthread.kill if (@bgthread)
 
         @bgthread = Thread.new {
             list = []
@@ -42,4 +49,11 @@ class PhotoList < Gtk::IconView
             }
         }
     end
+
+    def set_database(db)
+        @db = db
+
+        update()
+    end
 end
+

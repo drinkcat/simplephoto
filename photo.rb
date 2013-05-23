@@ -8,7 +8,16 @@ DEFAULT_IMAGE_WIDTH = 200
 DEFAULT_IMAGE_HEIGHT = DEFAULT_IMAGE_WIDTH*3/4
 FIRST_EXIF = [ "FocalLength", "ExposureTime", "FNumber", "ISO", "WhiteBalance", "Flash" ]
 
-PLUGINS = { "description.rb" => "Description" }
+# Plugins for single photo editing
+PLUGINS = {
+    "description.rb" => "Description",
+    "rank.rb" => "Rank"
+}
+
+# Plugins for multiple photo editing
+PLUGINS_MULTI = {
+    "rank.rb" => "RankMulti"
+}
 
 require 'gtk2'
 require 'thread'

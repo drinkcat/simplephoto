@@ -4,9 +4,6 @@ class MainWindow < Gtk::Window
 
         @singlephotomode = false
 
-        @database = Database.new("/home/nicolas/photos/origs/2013/05a_random")
-        #@photolist.set_directory("/home/nicolas/photos/origs/2013/04d_vietnam")
-
         set_title  "Simple Photo"
         border_width = 10
         set_size_request(800, 600)
@@ -26,8 +23,18 @@ class MainWindow < Gtk::Window
         PLUGINS.each{|key, value|
             require "./plugins/#{key}"
             plugin = eval("#{value}.new")
-            pluginsbox.pack_start(plugin.getwidget(), false, false, 0)
+            widget = plugin.getwidget()
+            pluginsbox.pack_start(widget, false, false, 0)
             @plugins << plugin
+        }
+
+        @pluginsmulti = []
+        # FIXME: Add support for widgets
+
+        PLUGINS_MULTI.each{|key, value|
+            require "./plugins/#{key}"
+            plugin = eval("#{value}.new")
+            @pluginsmulti << plugin
         }
 
         @lefttopnotebook = Gtk::Notebook.new
@@ -72,7 +79,6 @@ class MainWindow < Gtk::Window
         scrollwin.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC)
         
         @photolist = PhotoList.new()
-        @photolist.set_database(@database)
         scrollwin.add(@photolist)
 
         @photolist.signal_connect("selection-changed") { oniconselect() }
@@ -111,6 +117,7 @@ class MainWindow < Gtk::Window
             keyname = Gdk::Keyval.to_name(e.keyval)
             if (keyname == "Escape") then
                 switchdisplaymode(false)
+                @photolist.update()
             end
 
             if (@singlephotomode) then
@@ -126,12 +133,38 @@ class MainWindow < Gtk::Window
                         @displayimage = @database.images[ix+1]
                         displayfullimage()
                     end
+                else
+                    @plugins.each{|plugin|
+                        if (plugin.accel.include?(keyname)) then
+                            plugin.activate(keyname)
+                        end
+                    }
                 end
             end
             #puts "#{e.keyval}, Gdk::Keyval::GDK_#{Gdk::Keyval.to_name(e.keyval)}"
             # Prevent key events from going further
             true
         end
+
+        @photolist.add_events(Gdk::Event::KEY_PRESS)
+
+        @photolist.signal_connect("key-press-event") do |w, e|
+            keyname = Gdk::Keyval.to_name(e.keyval)
+            ret = false
+            @pluginsmulti.each{|pluginmulti|
+                if (pluginmulti.accel.include?(keyname)) then
+                    if (pluginmulti.activate(keyname)) then
+                        @photolist.update()
+                    end
+                    ret = true
+                end
+            }
+            ret
+        end
+
+        @database = Database.new("/home/nicolas/photos/origs/2013/05a_random")
+        @photolist.set_database(@database)
+        @pluginsmulti.each{ |plugin| plugin.dbchanged(@database) }
     end
 
     def switchdisplaymode(singlephoto)

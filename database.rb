@@ -23,12 +23,15 @@ class Image
     attr_reader :filename
     attr_reader :fullname
     attr_reader :description
+    attr_reader :rank
 
     # FIXME: Infrastructure for alternates
 
     # Non-persistent
     # GDK pixbuf thumbnail
     attr_accessor :thumbnail
+    # Display in filelist?
+    attr_accessor :display
 
     def initialize(directory, filename)
         @fullname = directory + "/" + filename
@@ -37,6 +40,8 @@ class Image
         @thumbnail = $blank
         @exif = nil
         @description = ""
+        @rank = 0
+        @display = true
     end
 
     def exif
@@ -75,6 +80,11 @@ class Image
 
     def description=(desc)
         @description = desc
+    end
+
+
+    def rank=(rank)
+        @rank = rank
     end
 end
 
