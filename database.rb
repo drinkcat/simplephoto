@@ -22,7 +22,11 @@ end
 class Image
     attr_reader :filename
     attr_reader :fullname
+    attr_reader :description
 
+    # FIXME: Infrastructure for alternates
+
+    # Non-persistent
     # GDK pixbuf thumbnail
     attr_accessor :thumbnail
 
@@ -32,6 +36,7 @@ class Image
 
         @thumbnail = $blank
         @exif = nil
+        @description = ""
     end
 
     def exif
@@ -42,4 +47,35 @@ class Image
         
         return @exif
     end
+
+    def genthumbnail(force = false)
+        return if (@thumbnail != $blank)
+
+        # Hack to make sure thumbnail is really generated in another thread
+        results = Parallel.map([self]) do |im|
+            # FIXME: Rotate image if EXIF says so
+            image = Magick::Image::read(im.fullname).first
+            
+            pix_w = image.columns
+            pix_h = image.rows
+            r1 = DEFAULT_IMAGE_WIDTH/pix_w.to_f
+            r2 = DEFAULT_IMAGE_HEIGHT/pix_h.to_f
+            out = [im.fullname, image.thumbnail([r1, r2].min)]
+            image.destroy!
+            out
+        end
+
+        scaled_pix = results[0][1]
+        @thumbnail = Gdk::Pixbuf.new(scaled_pix.export_pixels_to_str(), Gdk::Pixbuf::COLORSPACE_RGB,
+                        false, 8, scaled_pix.columns, scaled_pix.rows, scaled_pix.columns*3)
+        scaled_pix.destroy!
+
+        #FIXME: Make sure thumbnail is updated in the listmodel of photolist.rb
+    end
+
+    def description=(desc)
+        @description = desc
+    end
 end
+
+

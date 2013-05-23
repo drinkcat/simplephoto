@@ -18,11 +18,31 @@ class MainWindow < Gtk::Window
         leftpaned = Gtk::VPaned.new
 
         @dirtree = DirTree.new("/home/nicolas/photos/origs")
-        leftpaned.add1(@dirtree)
         @dirtree.set_size_request(-1, 800)
+
+        @plugins = []
+        pluginsbox = Gtk::VBox.new(false, 0)
+
+        PLUGINS.each{|key, value|
+            require "./plugins/#{key}"
+            plugin = eval("#{value}.new")
+            pluginsbox.pack_start(plugin.getwidget(), false, false, 0)
+            @plugins << plugin
+        }
+
+        @lefttopnotebook = Gtk::Notebook.new
+        @lefttopnotebook.show_border = false
+        @lefttopnotebook.show_tabs = false
+        @lefttopnotebook.append_page(@dirtree)
+        @lefttopnotebook.append_page(pluginsbox)
+
+        leftpaned.add1(@lefttopnotebook)
 
         infobox = Gtk::VBox.new(false, 0)
         @desclabel = Gtk::Label.new()
+        @filenamelabel = Gtk::Label.new()
+        infobox.pack_start(Gtk::Label.new("Filename:"), false, false, 0)
+        infobox.pack_start(@filenamelabel, false, false, 0)
         infobox.pack_start(Gtk::Label.new("Description:"), false, false, 0)
         infobox.pack_start(@desclabel, false, false, 0)
 
@@ -80,31 +100,37 @@ class MainWindow < Gtk::Window
 
         add(toppaned)
 
-        add_events(Gdk::Event::KEY_PRESS)
+        @scrollwinimage.signal_connect('button-press-event') { |w|
+            #puts "Button!"
+            @scrollwinimage.grab_focus
+        }
 
-        signal_connect("key-press-event") do |w, e|
+        @scrollwinimage.add_events(Gdk::Event::KEY_PRESS)
+
+        @scrollwinimage.signal_connect("key-press-event") do |w, e|
             keyname = Gdk::Keyval.to_name(e.keyval)
             if (keyname == "Escape") then
                 switchdisplaymode(false)
             end
 
             if (@singlephotomode) then
-                
                 if (keyname == "Left") then
                     ix = @database.images.index(@displayimage)
                     if (ix > 0) then
                         @displayimage = @database.images[ix-1]
-                        displayimage()
+                        displayfullimage()
                     end
                 elsif (keyname == "Right") then
                     ix = @database.images.index(@displayimage)
                     if (ix < @database.images.length-1) then
                         @displayimage = @database.images[ix+1]
-                        displayimage()
+                        displayfullimage()
                     end
                 end
             end
-            puts "#{e.keyval}, Gdk::Keyval::GDK_#{Gdk::Keyval.to_name(e.keyval)}"
+            #puts "#{e.keyval}, Gdk::Keyval::GDK_#{Gdk::Keyval.to_name(e.keyval)}"
+            # Prevent key events from going further
+            true
         end
     end
 
@@ -115,34 +141,54 @@ class MainWindow < Gtk::Window
 
         if (@singlephotomode) then
             @rightnotebook.set_page(1)
+            @lefttopnotebook.set_page(1)
         else
             @rightnotebook.set_page(0)
+            @lefttopnotebook.set_page(0)
         end
     end
 
     def oniconselect()
-      if (@photolist.selected_items.length == 1) then
-        model = @photolist.model
-        im = model.get_value(model.get_iter(@photolist.selected_items[0]), 0)
+        if (@photolist.selected_items.length == 1) then
+            model = @photolist.model
+            @displayimage = model.get_value(model.get_iter(@photolist.selected_items[0]), 0)
+        else
+            @displayimage = nil
+        end
 
-        @infostore.clear
-        keys = (im.exif.keys & FIRST_EXIF) + (im.exif.keys - FIRST_EXIF)
-        keys.each{|key|
-            iter = @infostore.append
-            iter[0] = key.to_s
-            iter[1] = im.exif[key].to_s
-        }
-      end
+        displayimageinfo();
     end
 
     def onicondoubleclick(path)
         model = @photolist.model
         @displayimage = model.get_value(model.get_iter(path), 0)
-        displayimage()
+        displayfullimage()
     end
 
-    def displayimage()
-       image = Magick::Image::read(@displayimage.fullname).first
+    def displayimageinfo()
+        @infostore.clear
+        if (@displayimage) then
+            keys = (@displayimage.exif.keys & FIRST_EXIF) + (@displayimage.exif.keys - FIRST_EXIF)
+            keys.each{|key|
+                iter = @infostore.append
+                iter[0] = key.to_s
+                iter[1] = @displayimage.exif[key].to_s
+            }
+            @filenamelabel.text = @displayimage.filename;
+            @desclabel.text = @displayimage.description;
+        else
+            @filenamelabel.text = "";
+            @desclabel.text = "";
+        end
+    end
+
+    # FIXME: Rescale image on window size change
+    def displayfullimage()
+        displayimageinfo()
+
+        #FIXME: First display scaled thumbnail, then async load of other image
+
+        image = Magick::Image::read(@displayimage.fullname).first
         
         pix_w = image.columns
         pix_h = image.rows
@@ -152,7 +198,14 @@ class MainWindow < Gtk::Window
 
         @singleimage.pixbuf = Gdk::Pixbuf.new(simage.export_pixels_to_str(), Gdk::Pixbuf::COLORSPACE_RGB,
                             false, 8, simage.columns, simage.rows, simage.columns*3)
+
+        @plugins.each{ |plugin| plugin.imagechanged(@displayimage) }
+
         switchdisplaymode(true)
+    end
+
+    def getcurrentimage()
+        return @displayimage
     end
 end
 

@@ -8,6 +8,8 @@ DEFAULT_IMAGE_WIDTH = 200
 DEFAULT_IMAGE_HEIGHT = DEFAULT_IMAGE_WIDTH*3/4
 FIRST_EXIF = [ "FocalLength", "ExposureTime", "FNumber", "ISO", "WhiteBalance", "Flash" ]
 
+PLUGINS = { "description.rb" => "Description" }
+
 require 'gtk2'
 require 'thread'
 require 'RMagick'
