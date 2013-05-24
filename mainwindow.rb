@@ -119,20 +119,31 @@ class MainWindow < Gtk::Window
             if (keyname == "Escape") then
                 switchdisplaymode(false)
                 @photolist.update()
+                @database.save()
             end
 
             if (@singlephotomode) then
                 if (keyname == "Left") then
-                    ix = @database.images.index(@displayimage)
-                    if (ix > 0) then
-                        @displayimage = @database.images[ix-1]
-                        displayfullimage()
+                    ix = @database.images.index(@displayimage)-1
+                    while (ix >= 0) do
+                        if (@database.images[ix].display) then
+                            @displayimage = @database.images[ix]
+                            displayfullimage()
+                            @database.save()
+                            break
+                        end
+                        ix = ix-1
                     end
                 elsif (keyname == "Right") then
-                    ix = @database.images.index(@displayimage)
-                    if (ix < @database.images.length-1) then
-                        @displayimage = @database.images[ix+1]
-                        displayfullimage()
+                    ix = @database.images.index(@displayimage)+1
+                    while (ix < @database.images.length) do
+                        if (@database.images[ix].display) then
+                            @displayimage = @database.images[ix]
+                            displayfullimage()
+                            @database.save()
+                            break
+                        end
+                        ix = ix+1
                     end
                 else
                     @plugins.each{|plugin|
@@ -161,9 +172,11 @@ class MainWindow < Gtk::Window
             ret
         end
 
-        @database = Database.load("/home/nicolas/photos/origs/2013/05b_suzhou")
-        @photolist.set_database(@database)
-        @pluginsmulti.each{ |plugin| plugin.dbchanged(@database) }
+        if (ARGV.length == 1) then
+            @database = Database.load(ARGV[0])
+            @photolist.set_database(@database)
+            @pluginsmulti.each{ |plugin| plugin.dbchanged(@database) }
+        end
 
         #Display first
         #@displayimage = @database.images[0]
@@ -196,9 +209,12 @@ class MainWindow < Gtk::Window
     end
 
     def onicondoubleclick(path)
+        puts "Double"
         model = @photolist.model
         @displayimage = model.get_value(model.get_iter(path), 0)
+        puts "Display"
         displayfullimage()
+        puts "Done."
     end
 
     def displayimageinfo()
@@ -222,6 +238,9 @@ class MainWindow < Gtk::Window
     def displayfullimage()
         displayimageinfo()
 
+        switchdisplaymode(true)
+        @singleimage.pixbuf = nil
+
         #FIXME: First display scaled thumbnail, then async load of other image
 
         simage = @displayimage.genfullimage(@scrollwinimage.allocation.width, @scrollwinimage.allocation.height)
@@ -230,8 +249,6 @@ class MainWindow < Gtk::Window
                             false, 8, simage.columns, simage.rows, simage.columns*3)
 
         @plugins.each{ |plugin| plugin.imagechanged(@displayimage) }
-
-        switchdisplaymode(true)
     end
 
     def getcurrentimage()
@@ -244,6 +261,10 @@ class MainWindow < Gtk::Window
 
     def updateimagelist()
         @photolist.update()
+    end
+
+    def focus_image()
+        @scrollwinimage.grab_focus
     end
 end
 

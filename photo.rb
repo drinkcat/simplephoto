@@ -1,24 +1,6 @@
 #!/usr/bin/env ruby
-# All in Paned
-# File navigator on left (TreeView)
-# Exif on left bottom (?)
-# Scrollwindow on the right
 
-DEFAULT_IMAGE_WIDTH = 200
-DEFAULT_IMAGE_HEIGHT = DEFAULT_IMAGE_WIDTH*3/4
-FIRST_EXIF = [ "FocalLength", "ExposureTime", "FNumber", "ISO", "WhiteBalance", "Flash" ]
-
-# Plugins for single photo editing
-PLUGINS = {
-    "description.rb" => "Description",
-    "rank.rb" => "Rank",
-    "levels.rb" => "Levels"
-}
-
-# Plugins for multiple photo editing
-PLUGINS_MULTI = {
-    "rank.rb" => "RankMulti"
-}
+require './config.rb'
 
 require 'gtk2'
 require 'thread'

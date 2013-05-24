@@ -11,13 +11,14 @@ class Description
     def getwidget()
         box = Gtk::VBox.new(false, 0)
         @desctext = Gtk::Entry.new()
+        @desctext.signal_connect("activate") {|adj| @callback.focus_image() }
         box.pack_start(Gtk::Label.new("Description:"), false, false, 0)
         box.pack_start(@desctext, false, false, 0)
         return box
     end
 
     def activate(key)
-        #FIXME: Set in focus
+        @desctext.grab_focus
     end
 
     def imagechanged(image)

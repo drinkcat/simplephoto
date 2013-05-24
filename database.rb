@@ -1,7 +1,10 @@
-# Database of current images
+    # Database of current images
 
 require 'yaml'
 require 'json'
+require 'gtk2'
+require 'RMagick'
+require 'fileutils'
 
 $blank = Gdk::Pixbuf.new(Gdk::Pixbuf::COLORSPACE_RGB, false, 8, DEFAULT_IMAGE_WIDTH, DEFAULT_IMAGE_WIDTH*3/4)
 
@@ -30,11 +33,13 @@ class Database
     def init_with coder
         @images = coder['images']
         @directory = nil
+        @backup = false
     end
 
     def initialize(directory)
         @directory = directory
         @images = []
+        @backup = false
     end
 
     def postload(directory)
@@ -43,15 +48,25 @@ class Database
     end
 
     def addimages()
-        Dir.new(@directory).to_a.sort!.each{|filename|
+        dirlist = Dir.new(@directory).to_a.sort!
+        dirlist.each{|filename|
             next if (filename.upcase !~ /.*JPG/)
             if (!@images.any?{|im| im.filename == filename}) then
                 @images << Image.new(@directory, filename)
             end
         }
+        # Remove references to non-existing files
+        @images.reject!{|im|
+            !dirlist.any?{|file| file == im.filename}
+        }
     end
 
     def save()
+        if (!@backup) then
+            date = DateTime.now.strftime("%Y%jT%H%MZ")
+            FileUtils.mv(directory + '/simplephoto.yaml', directory + "/simplephoto.yaml.bkp-#{date}")
+            @backup = true
+        end
         File.open(directory + '/simplephoto.yaml', 'w') { |f|
             f.print self.to_yaml
         }
@@ -123,9 +138,9 @@ class Image
 
         # Hack to make sure thumbnail is generated in another process
         results = Parallel.map([self]) do |im|
-            # FIXME: Rotate image if EXIF says so
             image = Magick::Image::read(im.fullname).first
-            
+            image.auto_orient!
+
             pix_w = image.columns
             pix_h = image.rows
             r1 = DEFAULT_IMAGE_WIDTH/pix_w.to_f
@@ -143,13 +158,14 @@ class Image
         #FIXME: Make sure thumbnail is updated in the listmodel of photolist.rb
     end
 
-    #FIXME: Reuse image whenever possible
+    #FIXME: Clear up cache when necessary
     def genfullimage(width, height)
         cacheinfo = [fullname, width, height]
 
         if (cacheinfo != @cacheinfo) then
             image = Magick::Image::read(fullname).first
-            
+            image.auto_orient!
+
             pix_w = image.columns
             pix_h = image.rows
             r1 = width/pix_w.to_f
@@ -158,7 +174,8 @@ class Image
 
             hist = (0..255).map{0}
 
-            simage.color_histogram.each{|pixel, count|
+            #.quantize(256, Magick::GRAYColorspace, Magick::NoDitherMethod)
+            simage.thumbnail(200, 200).color_histogram.each{|pixel, count|
                 hist[(pixel.intensity*255/Magick::QuantumRange).round.to_i] += count
             }
 
@@ -180,6 +197,20 @@ class Image
         simage
     end
 
+    def export(outfile)
+        image = Magick::Image::read(fullname).first
+
+        if (@defaultalt > -1) then
+            @alt[@defaultalt].modifiers.each{|mod|
+                image = mod.apply(image)
+            }
+        end
+
+        image.write(outfile)
+        image.destroy!
+        GC.start()
+    end
+
     def fullname
         @directory + "/" + ((@defaultalt == -1) ? @filename : @alt[@defaultalt].filename)
     end
@@ -192,11 +223,15 @@ class Image
         @rank = rank
     end
 
-    def getcurrentalt()
+    def getcurrentalt(create)
         if (@defaultalt == -1) then
-            newalt = ImageAlternate.new(@filename)
-            @alt << newalt
-            @defaultalt = @alt.length-1
+            if (create) then
+                newalt = ImageAlternate.new(@filename)
+                @alt << newalt
+                @defaultalt = @alt.length-1
+            else
+                return nil
+            end
         end
         @alt[@defaultalt]
     end

@@ -40,23 +40,30 @@ class Levels
     end
 
     def adjust()
+        return if (!@image)
+
         activate(nil) if (!@levelmod)
 
         black = @blackadj.value.round.to_i
         @levelmod.black = black
         @blackadj.value = black
-        @blacklabel.text = "Black: " + black.to_s
 
         white = @whiteadj.value.round.to_i
         @levelmod.white = white
         @whiteadj.value = white
-        @whitelabel.text = "White: " + white.to_s
+
+        updatetext()
 
         @callback.updateimage()
     end
 
+    def updatetext()
+        @blacklabel.text = "Black: " + (@levelmod ? @levelmod.black.to_s : "0")
+        @whitelabel.text = "White: " + (@levelmod ? @levelmod.white.to_s : "255")
+    end
+
     def activate(key)
-        alt = @image.getcurrentalt()
+        alt = @image.getcurrentalt(true)
         if (!@levelmod) then
             @levelmod = LevelModifier.new(0, 255)
             alt.modifiers << @levelmod
@@ -64,13 +71,19 @@ class Levels
     end
 
     def imagechanged(image)
-        @image = image
-        alt = @image.getcurrentalt()
-        @levelmod = alt.modifiers.find{|x| x.class == LevelModifier}
+        @image = nil
+        alt = image.getcurrentalt(false)
+        @levelmod = alt ? alt.modifiers.find{|x| x.class == LevelModifier} : nil
         if (@levelmod) then
+            #puts "L:#{@levelmod.black}/#{@levelmod.white}"
             @blackadj.value = @levelmod.black
             @whiteadj.value = @levelmod.white
+        else
+            @blackadj.value = 0
+            @whiteadj.value = 255
         end
+        updatetext()
+        @image = image
 
         if (!@histogrampixmap) then
             window = @histogram.get_ancestor(Gtk::Window).window
@@ -102,8 +115,8 @@ class Levels
                         LEVELS_XOFFSET+@levelmod.white, LEVELS_HEIGHT-LEVELS_YBORDERBOTTOM,
                         LEVELS_XOFFSET+@levelmod.white, LEVELS_HEIGHT-2)
 
-            @histogram.pixmap = @histogrampixmap
         end
+        @histogram.pixmap = @histogrampixmap
     end
 end
 
