@@ -8,6 +8,7 @@ class MainWindow < Gtk::Window
         border_width = 10
         set_size_request(800, 600)
         signal_connect('delete_event') {
+            @database.save if (@database)
             Gtk.main_quit
             Thread.list.each {|t| t.kill }
         }
@@ -22,7 +23,7 @@ class MainWindow < Gtk::Window
 
         PLUGINS.each{|key, value|
             require "./plugins/#{key}"
-            plugin = eval("#{value}.new")
+            plugin = eval("#{value}.new(self)")
             widget = plugin.getwidget()
             pluginsbox.pack_start(widget, false, false, 0)
             @plugins << plugin
@@ -33,7 +34,7 @@ class MainWindow < Gtk::Window
 
         PLUGINS_MULTI.each{|key, value|
             require "./plugins/#{key}"
-            plugin = eval("#{value}.new")
+            plugin = eval("#{value}.new(self)")
             @pluginsmulti << plugin
         }
 
@@ -153,18 +154,20 @@ class MainWindow < Gtk::Window
             ret = false
             @pluginsmulti.each{|pluginmulti|
                 if (pluginmulti.accel.include?(keyname)) then
-                    if (pluginmulti.activate(keyname)) then
-                        @photolist.update()
-                    end
+                    pluginmulti.activate(keyname)
                     ret = true
                 end
             }
             ret
         end
 
-        @database = Database.new("/home/nicolas/photos/origs/2013/05a_random")
+        @database = Database.load("/home/nicolas/photos/origs/2013/05b_suzhou")
         @photolist.set_database(@database)
         @pluginsmulti.each{ |plugin| plugin.dbchanged(@database) }
+
+        #Display first
+        #@displayimage = @database.images[0]
+        #displayfullimage()
     end
 
     def switchdisplaymode(singlephoto)
@@ -221,13 +224,7 @@ class MainWindow < Gtk::Window
 
         #FIXME: First display scaled thumbnail, then async load of other image
 
-        image = Magick::Image::read(@displayimage.fullname).first
-        
-        pix_w = image.columns
-        pix_h = image.rows
-        r1 = @scrollwinimage.allocation.width/pix_w.to_f
-        r2 = @scrollwinimage.allocation.height/pix_h.to_f
-        simage = image.scale([r1, r2].min)
+        simage = @displayimage.genfullimage(@scrollwinimage.allocation.width, @scrollwinimage.allocation.height)
 
         @singleimage.pixbuf = Gdk::Pixbuf.new(simage.export_pixels_to_str(), Gdk::Pixbuf::COLORSPACE_RGB,
                             false, 8, simage.columns, simage.rows, simage.columns*3)
@@ -239,6 +236,14 @@ class MainWindow < Gtk::Window
 
     def getcurrentimage()
         return @displayimage
+    end
+
+    def updateimage()
+        displayfullimage()
+    end
+
+    def updateimagelist()
+        @photolist.update()
     end
 end
 

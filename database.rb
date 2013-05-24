@@ -1,31 +1,71 @@
 # Database of current images
 
+require 'yaml'
 require 'json'
 
 $blank = Gdk::Pixbuf.new(Gdk::Pixbuf::COLORSPACE_RGB, false, 8, DEFAULT_IMAGE_WIDTH, DEFAULT_IMAGE_WIDTH*3/4)
 
 class Database
+    private_class_method :new
+
+    def Database.load(directory)
+        db = nil
+        if File.exists?(directory + '/simplephoto.yaml')
+            db = YAML::load( File.read(directory + '/simplephoto.yaml') )
+            db.postload(directory)
+        else
+            db = new(directory)
+        end
+        db.addimages()
+        db
+    end
+
     attr_reader :directory
     attr_reader :images
 
+    def encode_with coder
+        coder['images'] = @images
+    end
+
+    def init_with coder
+        @images = coder['images']
+        @directory = nil
+    end
+
     def initialize(directory)
         @directory = directory
-        
         @images = []
-        Dir.new(directory).to_a.sort!.each{|filename|
+    end
+
+    def postload(directory)
+        @directory = directory
+        @images.each{|im| im.directory = directory}   
+    end
+
+    def addimages()
+        Dir.new(@directory).to_a.sort!.each{|filename|
             next if (filename.upcase !~ /.*JPG/)
-            @images << Image.new(directory, filename)
+            if (!@images.any?{|im| im.filename == filename}) then
+                @images << Image.new(@directory, filename)
+            end
+        }
+    end
+
+    def save()
+        File.open(directory + '/simplephoto.yaml', 'w') { |f|
+            f.print self.to_yaml
         }
     end
 end
 
 class Image
     attr_reader :filename
-    attr_reader :fullname
     attr_reader :description
     attr_reader :rank
+    attr_reader :alt
+    attr_reader :defaultalt
 
-    # FIXME: Infrastructure for alternates
+    attr_accessor :directory
 
     # Non-persistent
     # GDK pixbuf thumbnail
@@ -33,21 +73,46 @@ class Image
     # Display in filelist?
     attr_accessor :display
 
-    def initialize(directory, filename)
-        @fullname = directory + "/" + filename
-        @filename = filename
+    attr_accessor :histogram
 
-        @thumbnail = $blank
-        @exif = nil
+    def encode_with coder
+        coder['filename'] = @filename
+        coder['description'] = @description
+        coder['rank'] = @rank
+        coder['alt'] = @alt
+        coder['defaultalt'] = @defaultalt
+    end
+
+    def init_with coder
+        @filename = coder['filename']
+        @description = coder['description']
+        @rank = coder['rank']
+        @alt = coder['alt']
+        @defaultalt = coder['defaultalt']
+        initdefault()
+    end
+
+    def initialize(directory, filename)
+        @directory = directory
+        @filename = filename
         @description = ""
         @rank = 0
+        initdefault()
+    end
+
+    def initdefault()
+        @thumbnail = $blank
+        @exif = nil
         @display = true
+        @alt = [] if (!@alt)
+        @defaultalt = -1 if (!@defaultalt)
+        @cacheinfo = nil
     end
 
     def exif
         return @exif if (@exif)
         
-        exiftool = `exiftool -json #{@fullname}`
+        exiftool = `exiftool -json #{self.fullname}`
         @exif = JSON.parse(exiftool)[0]
         
         return @exif
@@ -56,7 +121,7 @@ class Image
     def genthumbnail(force = false)
         return if (@thumbnail != $blank)
 
-        # Hack to make sure thumbnail is really generated in another thread
+        # Hack to make sure thumbnail is generated in another process
         results = Parallel.map([self]) do |im|
             # FIXME: Rotate image if EXIF says so
             image = Magick::Image::read(im.fullname).first
@@ -78,14 +143,73 @@ class Image
         #FIXME: Make sure thumbnail is updated in the listmodel of photolist.rb
     end
 
+    #FIXME: Reuse image whenever possible
+    def genfullimage(width, height)
+        cacheinfo = [fullname, width, height]
+
+        if (cacheinfo != @cacheinfo) then
+            image = Magick::Image::read(fullname).first
+            
+            pix_w = image.columns
+            pix_h = image.rows
+            r1 = width/pix_w.to_f
+            r2 = height/pix_h.to_f
+            simage = image.scale([r1, r2].min)
+
+            hist = (0..255).map{0}
+
+            simage.color_histogram.each{|pixel, count|
+                hist[(pixel.intensity*255/Magick::QuantumRange).round.to_i] += count
+            }
+
+            sum = hist.inject(0){|sum, t| sum + t}
+            @histogram = hist.map{|x| x.to_f/sum}
+
+            @imagecache = simage
+            @cacheinfo = cacheinfo
+        else
+            simage = @imagecache
+        end
+
+        if (@defaultalt > -1) then
+            @alt[@defaultalt].modifiers.each{|mod|
+                simage = mod.apply(simage)
+            }
+        end
+
+        simage
+    end
+
+    def fullname
+        @directory + "/" + ((@defaultalt == -1) ? @filename : @alt[@defaultalt].filename)
+    end
+
     def description=(desc)
         @description = desc
     end
 
-
     def rank=(rank)
         @rank = rank
     end
+
+    def getcurrentalt()
+        if (@defaultalt == -1) then
+            newalt = ImageAlternate.new(@filename)
+            @alt << newalt
+            @defaultalt = @alt.length-1
+        end
+        @alt[@defaultalt]
+    end
 end
 
+# Reference to a modified image
+class ImageAlternate
+    attr_reader :filename
+    attr_reader :modifiers
+    
+    def initialize(filename)
+        @filename = filename
+        @modifiers = []
+    end
+end
 

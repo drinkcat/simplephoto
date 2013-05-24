@@ -2,9 +2,10 @@
 class Rank
     attr_reader :accel
     
-    def initialize()
+    def initialize(callback)
         @accel = [ "0", "1", "2", "3", "4", "5" ]
         @image = nil
+        @callback = callback
     end
 
     def getwidget()
@@ -18,7 +19,6 @@ class Rank
         i = key.to_i
         @image.rank = i if (@image && i >= 0 && i <= 5)
         imagechanged(@image)
-        false
     end
 
     def imagechanged(image)
@@ -36,10 +36,11 @@ end
 class RankMulti
     attr_reader :accel
     
-    def initialize()
+    def initialize(callback)
         @accel = [ "0", "1", "2", "3", "4", "5" ]
         @mingood = 0
         @db = nil
+        @callback = callback
     end
 
     def getwidget()
@@ -47,13 +48,13 @@ class RankMulti
     end
 
     def activate(key)
-        return false if (!@db)
+        return if (!@db)
         i = key.to_i
         @mingood = i if (i >= 0 && i <= 5)
         @db.images.each{|im|
             im.display = im.rank >= @mingood
         }
-        true
+        @callback.updateimagelist()
     end
 
     def dbchanged(db)

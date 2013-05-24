@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby -d
+#!/usr/bin/env ruby
 # All in Paned
 # File navigator on left (TreeView)
 # Exif on left bottom (?)
@@ -11,7 +11,8 @@ FIRST_EXIF = [ "FocalLength", "ExposureTime", "FNumber", "ISO", "WhiteBalance", 
 # Plugins for single photo editing
 PLUGINS = {
     "description.rb" => "Description",
-    "rank.rb" => "Rank"
+    "rank.rb" => "Rank",
+    "levels.rb" => "Levels"
 }
 
 # Plugins for multiple photo editing

@@ -2,9 +2,10 @@
 class Description
     attr_reader :accel
     
-    def initialize()
+    def initialize(callback)
         @accel = [ "d" ]
         @image = nil
+        @callback = callback
     end
 
     def getwidget()
@@ -17,7 +18,6 @@ class Description
 
     def activate(key)
         #FIXME: Set in focus
-        false
     end
 
     def imagechanged(image)
