@@ -63,8 +63,10 @@ class Database
 
     def save()
         if (!@backup) then
-            date = DateTime.now.strftime("%Y%jT%H%MZ")
-            FileUtils.mv(directory + '/simplephoto.yaml', directory + "/simplephoto.yaml.bkp-#{date}")
+            if (File.exists?(directory + '/simplephoto.yaml')) then
+                date = DateTime.now.strftime("%Y%jT%H%MZ")
+                FileUtils.mv(directory + '/simplephoto.yaml', directory + "/simplephoto.yaml.bkp-#{date}")
+            end
             @backup = true
         end
         File.open(directory + '/simplephoto.yaml', 'w') { |f|
