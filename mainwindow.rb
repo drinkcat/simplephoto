@@ -25,7 +25,7 @@ class MainWindow < Gtk::Window
             require "./plugins/#{key}"
             plugin = eval("#{value}.new(self)")
             widget = plugin.getwidget()
-            pluginsbox.pack_start(widget, false, false, 0)
+            pluginsbox.pack_start(widget, false, false, 0) if (widget)
             @plugins << plugin
         }
 
@@ -226,7 +226,7 @@ class MainWindow < Gtk::Window
                 iter[0] = key.to_s
                 iter[1] = @displayimage.exif[key].to_s
             }
-            @filenamelabel.text = @displayimage.filename;
+            @filenamelabel.text = @displayimage.currentfilename;
             @desclabel.text = @displayimage.description;
         else
             @filenamelabel.text = "";

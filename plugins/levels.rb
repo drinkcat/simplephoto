@@ -95,7 +95,7 @@ class Levels
         gc.rgb_fg_color = Gdk::Color.parse("#000000")
         @histogrampixmap.draw_rectangle(gc, false, 0, 0, LEVELS_WIDTH-1, LEVELS_HEIGHT-1)
         
-        scale = (LEVELS_HEIGHT-LEVELS_YBORDERBOTTOM-LEVELS_YBORDERTOP)/(@image.histogram.sort[253]*1.1)
+        scale = (LEVELS_HEIGHT-LEVELS_YBORDERBOTTOM-LEVELS_YBORDERTOP)/(@image.histogram.sort[253]*1.1+1)
 
         gc.rgb_fg_color = Gdk::Color.parse("#000000")
         @image.histogram.each_index{ |i|

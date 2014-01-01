@@ -1,18 +1,17 @@
-class Description
+class Alternate
     attr_reader :accel
     
     def initialize(callback)
-        @accel = [ "d" ]
+        @accel = [ "a", "x" ]
         @image = nil
         @callback = callback
     end
 
     def getwidget()
         box = Gtk::VBox.new(false, 0)
-        @desctext = Gtk::Entry.new()
-        @desctext.signal_connect("activate") {|adj| @callback.focus_image() }
-        box.pack_start(Gtk::Label.new("Description:"), false, false, 0)
-        box.pack_start(@desctext, false, false, 0)
+        @list = Gtk::Label.new()
+        box.pack_start(Gtk::Label.new("Alternates:"), false, false, 0)
+        box.pack_start(@list, false, false, 0)
         return box
     end
 

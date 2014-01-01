@@ -50,8 +50,8 @@ class Database
     def addimages()
         dirlist = Dir.new(@directory).to_a.sort!
         dirlist.each{|filename|
-            next if (filename.upcase !~ /.*JPG/)
-            if (!@images.any?{|im| im.filename == filename}) then
+            next if (filename.upcase !~ /\.JPG$/)
+            if (!@images.any?{|im| im.hasfile?(filename) }) then
                 @images << Image.new(@directory, filename)
             end
         }
@@ -67,6 +67,7 @@ class Database
                 date = DateTime.now.strftime("%Y%jT%H%MZ")
                 FileUtils.mv(directory + '/simplephoto.yaml', directory + "/simplephoto.yaml.bkp-#{date}")
             end
+
             @backup = true
         end
         File.open(directory + '/simplephoto.yaml', 'w') { |f|
@@ -162,7 +163,7 @@ class Image
 
     #FIXME: Clear up cache when necessary
     def genfullimage(width, height)
-        cacheinfo = [fullname, width, height]
+        cacheinfo = [fullname, width, height, File.mtime(fullname)]
 
         if (cacheinfo != @cacheinfo) then
             image = Magick::Image::read(fullname).first
@@ -214,7 +215,11 @@ class Image
     end
 
     def fullname
-        @directory + "/" + ((@defaultalt == -1) ? @filename : @alt[@defaultalt].filename)
+        @directory + "/" + currentfilename
+    end
+
+    def currentfilename
+        ((@defaultalt == -1) ? @filename : @alt[@defaultalt].filename)
     end
 
     def description=(desc)
@@ -225,17 +230,48 @@ class Image
         @rank = rank
     end
 
+    def createalt(newfile)
+        fn = @filename
+        if (newfile) then
+            base = fn
+            ext = ""
+            match = fn.match(/(.*)(\..*)/)
+            if (match) then
+                base = match[1]
+                ext = match[2]
+            else
+                puts "ERROR: Cannot split #{fn} is base/ext pair! Continuing nevertheless"
+            end
+            i = 0
+            begin
+                fn = "#{base}_mod#{i}#{ext}"
+                i += 1
+            end while (File.exists?(@directory + "/" + fn))
+            puts "Export as #{fn}."
+            export(@directory + "/" + fn)
+        end
+        newalt = ImageAlternate.new(fn)
+        @alt << newalt
+        @defaultalt = @alt.length-1
+    end
+
     def getcurrentalt(create)
         if (@defaultalt == -1) then
             if (create) then
-                newalt = ImageAlternate.new(@filename)
-                @alt << newalt
-                @defaultalt = @alt.length-1
+                createalt(false)
             else
                 return nil
             end
         end
         @alt[@defaultalt]
+    end
+
+    def hasfile?(filename)
+        return true if (@filename == filename)
+        @alt.each{|alt|
+            return true if (alt.filename == filename)
+        }
+        return false
     end
 end
 
