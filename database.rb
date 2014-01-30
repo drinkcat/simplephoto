@@ -51,7 +51,8 @@ class Database
         dirlist = Dir.new(@directory).to_a.sort!
         dirlist.each{|filename|
             next if (filename.upcase !~ /\.JPG$/)
-            if (!@images.any?{|im| im.hasfile?(filename) }) then
+            if (!@images.any?{|im| im.hasfile?(filename) } && 
+                !@images.any?{|im| im.ispossiblealt?(filename) }) then
                 @images << Image.new(@directory, filename)
             end
         }
@@ -59,6 +60,7 @@ class Database
         @images.reject!{|im|
             !dirlist.any?{|file| file == im.filename}
         }
+        @images.sort_by!{|im| im.filename.upcase }
     end
 
     def save()
@@ -255,6 +257,19 @@ class Image
         @defaultalt = @alt.length-1
     end
 
+    def nextalt
+      puts "da=#{@defaultalt}"
+      @defaultalt += 1
+      @defaultalt = -1 if (@defaultalt >= @alt.length)
+      puts "dae=#{@defaultalt}"
+    end
+
+    def removealt
+      @alt.delete_at(@defaultalt) if (@defaultalt > 0)
+      @defaultalt -= 1
+      nextalt()
+    end
+
     def getcurrentalt(create)
         if (@defaultalt == -1) then
             if (create) then
@@ -271,6 +286,18 @@ class Image
         @alt.each{|alt|
             return true if (alt.filename == filename)
         }
+        return false
+    end
+
+    def ispossiblealt?(filename)
+        prefix = filename.upcase.split(/[-_.]/)[0]
+        prefix2 = @filename.upcase.split(/[-_.]/)[0]
+        if (prefix == prefix2) then
+            newalt = ImageAlternate.new(filename)
+            @alt << newalt
+            @defaultalt = @alt.length-1
+            return true
+        end
         return false
     end
 end

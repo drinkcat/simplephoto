@@ -17,8 +17,10 @@ PLUGINS = {
 # Plugins for multiple photo editing
 PLUGINS_MULTI = {
     "rank.rb" => "RankMulti",
-    "export.rb" => "Export",
-    "refresh.rb" => "Refresh"
+    "export.rb" => "Export"
+#
+#,
+#    "refresh.rb" => "Refresh"
 }
 
 

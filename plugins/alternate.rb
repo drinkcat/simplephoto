@@ -16,12 +16,20 @@ class Alternate
     end
 
     def activate(key)
-        @desctext.grab_focus
+        return if (!@image)
+        if (key == 'a') then
+          @image.nextalt()
+        elsif (key == 'x') then
+          @image.removealt()
+        end
+        @callback.updateimage()
     end
 
     def imagechanged(image)
-        @image.description = @desctext.text if (@image)
         @image = image
-        @desctext.text = @image.description if (@image)
+        alt = [ @image.filename ]
+        @image.alt.each{ |a| alt << a.filename }
+        alt[@image.defaultalt+1] = ">" + alt[@image.defaultalt+1]
+        @list.text = alt.join("\n")
     end
 end

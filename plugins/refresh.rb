@@ -1,7 +1,7 @@
 
 require 'fileutils'
 
-class Export
+class Refresh
     attr_reader :accel
     
     def initialize(callback)
@@ -17,7 +17,7 @@ class Export
     def activate(key)
         return if (!@db)
         @db.addimages()
-
+        @callback.updateimagelist()
     end
 
     def dbchanged(db)
